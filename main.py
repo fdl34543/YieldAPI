@@ -81,6 +81,10 @@ def vault_stats():
     adapter = get_best_yield_usdc()["adapter"]
     return get_vault_stats(adapter)
 
+@app.get("/vault/feeAnalytics")
+def fee_analytics():
+    return getFeeAnalytics()
+
 # Fee + Performance History
 @app.get("/vault/performance")
 def vault_performance():
@@ -251,3 +255,17 @@ def performanceHistory(bestAdapter):
         "cumulative_gas_costs": cumulative_gas / 1e6,
         "net_yield": (cumulative_yield - cumulative_gas) / 1e6
     }
+def getFeeAnalytics():
+    vlt_address = web3.to_checksum_address("0x31cc89CFC8F4fa96816dc006134d655169e68388")
+    ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={vlt_address}&apikey={ETHERSCAN_API_KEY}'
+    vlt_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
+    vlt = web3.eth.contract(address=vlt_address, abi=vlt_abi)
+
+    fees = vlt.functions.getFeeAnalytics().call()
+
+    return {
+        "accrued_fees": fees[0] / 1e6,
+        "fees_collected_24h": fees[1] / 1e6,
+        "fees_collected_total": fees[2] / 1e6
+    }
+
