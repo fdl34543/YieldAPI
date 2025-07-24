@@ -1,12 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from web3 import Web3
 from datetime import datetime
 import requests
 import json
+from typing import NamedTuple
+from dotenv import load_dotenv
+import os
 
 app = FastAPI()
+
+load_dotenv()
 
 # Allow frontend to access the API (change origin for prod)
 app.add_middleware(
@@ -21,6 +26,14 @@ SEPOLIA_RPC = "https://sepolia.infura.io/v3/2ba3d93485814c04b0106479c8e9973d"
 ETHERSCAN_API_KEY = "15W7XAPWQMGR8I34AB5KK7XQAEIAS9PEGZ"
 web3 = Web3(Web3.HTTPProvider(SEPOLIA_RPC))
 DECIMALS = 1e6  # Adjust if vault uses 1e18
+PRIVATE_KEY = os.getenv("PRIVATE_KEY")
+
+controller_address = web3.to_checksum_address("0xcC0bdAb358f42EB86e09B6afD1109F3e59d0ab9B")
+CABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address=0xBD7189cD389f3CfDa49F5c6F72C1508a198EA8a6&apikey={ETHERSCAN_API_KEY}'
+controller_abi = json.loads(requests.get(CABI_ENDPOINT).json()['result'])
+controller = web3.eth.contract(address=controller_address, abi=controller_abi)
+
+account = web3.eth.account.from_key(PRIVATE_KEY)
 
 # Yield Metrics
 @app.get("/yield/metrics")
@@ -78,7 +91,7 @@ def yield_metrics():
 # Vault Stats
 @app.get("/vault/stats")
 def vault_stats():
-    adapter = get_best_yield_usdc()["adapter"]
+    adapter = getBestStrategy()["Adapter"]
     return get_vault_stats(adapter)
 
 @app.get("/vault/feeAnalytics")
@@ -88,8 +101,31 @@ def fee_analytics():
 # Fee + Performance History
 @app.get("/vault/performance")
 def vault_performance():
-    adapter = get_best_yield_usdc()["adapter"]
+    adapter = getBestStrategy()["Adapter"]
     return performanceHistory(adapter)
+
+# Best Strategies
+@app.get("/strategies/best")
+def best_strategies():
+    return getBestStrategy()
+
+# All Strategies
+@app.get("/strategies/all")
+def all_strategies():
+    return getAllStrategies()
+
+class StrategyInput(BaseModel):
+    name: str
+    address: str
+
+
+@app.post("/strategies/add")
+async def add_strategy(data: StrategyInput):
+    try:
+        result = register_strategy(data.name, data.address)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Core logic from your script below ---
 
@@ -100,8 +136,8 @@ def get_best_yield_usdc():
 
     protocols = ["aave-v3", "compound-v3"]
     adapter = {
-        "aave-v3": "0xa9BE08b7078EAFB2a42866bD273BC7454251663E",
-        "compound-v3": "0xFc11541A0A36747Bf278287fc67F6BbBeFd6E981"
+        "aave-v3": "0x33a52745b360C3031Fd6B767F1097e31B1B7C367",
+        "compound-v3": "0x82B3771C56c6E24251Ba9E68B5DE5B2059FC5bd4"
     }
 
     best_pool = None
@@ -210,11 +246,6 @@ def performanceHistory(bestAdapter):
     vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
     vault = web3.eth.contract(address=vault_address, abi=vault_abi)
 
-    controller_address = web3.to_checksum_address("0x8E486c2EF1A1f84acA2a251863aEd0B468a69221")
-    CABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address=0xBD7189cD389f3CfDa49F5c6F72C1508a198EA8a6&apikey={ETHERSCAN_API_KEY}'
-    controller_abi = json.loads(requests.get(CABI_ENDPOINT).json()['result'])
-    controller = web3.eth.contract(address=controller_address, abi=controller_abi)
-
     rebalance = controller.functions.rebalanceThreshold().call()
     rebalance_event = web3.keccak(text="Rebalanced(address,uint256)").hex()
     harvest_event = web3.keccak(text="YieldHarvested(uint256,uint256)").hex()
@@ -255,6 +286,7 @@ def performanceHistory(bestAdapter):
         "cumulative_gas_costs": cumulative_gas / 1e6,
         "net_yield": (cumulative_yield - cumulative_gas) / 1e6
     }
+
 def getFeeAnalytics():
     vlt_address = web3.to_checksum_address("0x31cc89CFC8F4fa96816dc006134d655169e68388")
     ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={vlt_address}&apikey={ETHERSCAN_API_KEY}'
@@ -269,3 +301,84 @@ def getFeeAnalytics():
         "fees_collected_total": fees[2] / 1e6
     }
 
+class Strategy(NamedTuple):
+    name: str
+    address: str
+
+def getBestStrategy():
+    allStrategies = controller.functions.getAllStrategies().call()
+    #print(allStrategies)
+
+    strategy_objs = [
+        Strategy(name, address)
+        for name, address in zip(allStrategies[0], allStrategies[1])
+    ]
+
+    bestStrategy = []
+
+    # Example usage:
+    for strategy in strategy_objs:
+        #print(strategy.name, strategy.address)
+        stra_address = web3.to_checksum_address(strategy.address)
+        straABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
+        stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
+        stra = web3.eth.contract(address=stra_address, abi=stra_abi)
+
+        apy = stra.functions.getCurrentAPY().call()
+
+        bestStrategy.append({
+            "name": strategy.name,
+            "address": strategy.address,
+            "apy": apy / 10**2
+        })
+    
+    best = max(bestStrategy, key=lambda s: s['apy'])
+    print(f"✅ Best Strategy: {best['name']} ({best['address']}) with APY: {best['apy']}")
+
+    return {
+        "Best Strategy": best['name'],
+        "Adapter": best['address'],
+        "APY": best['apy']
+    }
+
+def getAllStrategies():
+    allStrategies = controller.functions.getAllStrategies().call()
+    #print(allStrategies)
+
+    strategy_list = [
+        {"name": name, "address": address}
+        for name, address in zip(allStrategies[0], allStrategies[1])
+    ]
+
+    return strategy_list
+
+def register_strategy(name: str, address: str):
+    adapter_address = web3.to_checksum_address(address)
+
+    # Validate ABI
+    abi_url = f"https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={adapter_address}&apikey={ETHERSCAN_API_KEY}"
+    abi_response = requests.get(abi_url).json()
+    if abi_response.get("status") != "1":
+        raise ValueError("Invalid adapter contract address or ABI not found")
+
+    # Prepare transaction
+    tx = controller.functions.addStrategy(name, adapter_address).build_transaction({
+        "from": account.address,
+        "nonce": web3.eth.get_transaction_count(account.address),
+        "gas": 300_000,
+        "gasPrice": web3.to_wei("20", "gwei"),
+    })
+
+    # Sign and send transaction
+    signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+    return {
+        "message": "Strategy registered",
+        "strategy": name,
+        "adapter": adapter_address,
+        "tx_hash": web3.to_hex(tx_hash),
+    }
+
+#getBestStrategy()
+#getAllStrategies()
