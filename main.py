@@ -195,6 +195,7 @@ def get_vault_stats(bestAdapter):
     vault_address = web3.to_checksum_address(bestAdapter)
     ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={bestAdapter}&apikey={ETHERSCAN_API_KEY}'
     vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
+    print(ABI_ENDPOINT)
     vault = web3.eth.contract(address=vault_address, abi=vault_abi)
 
     total_assets = vault.functions.getTotalDeposits().call()
