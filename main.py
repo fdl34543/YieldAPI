@@ -155,9 +155,9 @@ def funds_idle():
     return getFundIdle()
 
 # Funds Deployment History
-@app.get("/funds/history")
-def funds_deploy():
-    return fundDeploymentHistory()
+# @app.get("/funds/history")
+# def funds_deploy():
+#     return fundDeploymentHistory()
 
 # Monitor All Strategies
 @app.get("/monitor/all-strategies")
@@ -525,28 +525,28 @@ def fundDeployment():
             "tx_hash": web3.to_hex(tx_hash),
         }
 
-def fundDeploymentHistory():
-    db: Session = SessionLocal()
-    try:
-        deployments = (
-            db.query(FundDeployment)
-            .order_by(FundDeployment.time_stamp.desc())  # Newest on top
-            .all()
-        )
-        result = []
-        for d in deployments:
-            result.append({
-                "id": d.id,
-                "method": d.method,
-                "strategy_name": d.strategy_name,
-                "adapter_address": d.adapter_address,
-                "time_stamp": d.time_stamp.strftime('%Y-%m-%d %H:%M:%S'),
-                "idle_balance": float(d.idle_balance),
-                "tx_hash": d.tx_hash
-            })
-        return result
-    finally:
-        db.close()
+# def fundDeploymentHistory():
+#     db: Session = SessionLocal()
+#     try:
+#         deployments = (
+#             db.query(FundDeployment)
+#             .order_by(FundDeployment.time_stamp.desc())  # Newest on top
+#             .all()
+#         )
+#         result = []
+#         for d in deployments:
+#             result.append({
+#                 "id": d.id,
+#                 "method": d.method,
+#                 "strategy_name": d.strategy_name,
+#                 "adapter_address": d.adapter_address,
+#                 "time_stamp": d.time_stamp.strftime('%Y-%m-%d %H:%M:%S'),
+#                 "idle_balance": float(d.idle_balance),
+#                 "tx_hash": d.tx_hash
+#             })
+#         return result
+#     finally:
+#         db.close()
 
 def Rebalancing():
     allStrategies = controller.functions.getAllStrategies().call()
