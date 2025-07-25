@@ -25,6 +25,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+VALID_API_KEY = "39a4f6be5b3a4d08ddaf45944cd8ce42"
+
 # Config
 SEPOLIA_RPC = "https://sepolia.infura.io/v3/2ba3d93485814c04b0106479c8e9973d"
 ETHERSCAN_API_KEY = "15W7XAPWQMGR8I34AB5KK7XQAEIAS9PEGZ"
@@ -63,6 +65,10 @@ gwein = float(gweinow) + 5
 #         yield db
 #     finally:
 #         db.close()
+
+def verify_api_key(api_key: str):
+    if api_key != VALID_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 # Yield Metrics
 @app.get("/yield/metrics")
@@ -148,20 +154,10 @@ def all_strategies():
 def funds_idle():
     return getFundIdle()
 
-# Funds Deployment
-@app.get("/funds/deploy")
-def funds_deploy():
-    return fundDeployment()
-
 # Funds Deployment History
 @app.get("/funds/history")
 def funds_deploy():
     return fundDeploymentHistory()
-
-# Rebalancing
-@app.get("/rebalancing")
-def execute_rebalancing():
-    return Rebalancing()
 
 # Monitor All Strategies
 @app.get("/monitor/all-strategies")
@@ -178,12 +174,26 @@ def monitor_apy():
 def monitor_allAssets():
     return allAssets()
 
+#========= CONTROL =========
+
+@app.get("/funds/deploy")
+def funds_deploy(api_key: str):
+    verify_api_key(api_key)
+    return fundDeployment()
+
+# Rebalancing
+@app.get("/rebalancing")
+def execute_rebalancing(api_key: str):
+    verify_api_key(api_key)
+    return Rebalancing()
+
 # Emergency Withdraw
 @app.get("/emergency-withdraw")
-def emergency_withdraw():
+def emergency_withdraw(api_key: str):
+    verify_api_key(api_key)
     return emergencyWithdraw()
 
-#--- POST ---
+#========= POST =========
 
 # Register Strategies
 class StrategyInput(BaseModel):
