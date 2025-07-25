@@ -201,54 +201,54 @@ def get_vault_stats(bestAdapter):
     total_shares = vault.functions.getTotalShares().call()
     share_price = vault.functions.sharePrice().call()
 
-    deposit_topic = web3.keccak(text="Deposit(address,address,uint256,uint256)").hex()
-    withdraw_topic = web3.keccak(text="Withdraw(address,address,uint256,uint256)").hex()
+    # deposit_topic = web3.keccak(text="Deposit(address,address,uint256,uint256)").hex()
+    # withdraw_topic = web3.keccak(text="Withdraw(address,address,uint256,uint256)").hex()
 
-    latest_block = web3.eth.block_number
-    latest_time = web3.eth.get_block(latest_block)["timestamp"]
-    start_time = latest_time - 86400
+    # latest_block = web3.eth.block_number
+    # latest_time = web3.eth.get_block(latest_block)["timestamp"]
+    # start_time = latest_time - 86400
 
-    from_block = max(latest_block - 20000, 0)
+    # from_block = max(latest_block - 20000, 0)
 
-    def get_logs(topic):
-        return web3.eth.get_logs({
-            "fromBlock": from_block,
-            "toBlock": latest_block,
-            "address": vault_address,
-            "topics": [topic]
-        })
+    # def get_logs(topic):
+    #     return web3.eth.get_logs({
+    #         "fromBlock": from_block,
+    #         "toBlock": latest_block,
+    #         "address": vault_address,
+    #         "topics": [topic]
+    #     })
 
-    deposit_logs = get_logs(deposit_topic)
-    withdraw_logs = get_logs(withdraw_topic)
+    # deposit_logs = get_logs(deposit_topic)
+    # withdraw_logs = get_logs(withdraw_topic)
 
-    depositors = set()
-    total_deposit = 0
-    total_withdraw = 0
+    # depositors = set()
+    # total_deposit = 0
+    # total_withdraw = 0
 
-    for log in deposit_logs:
-        block_time = web3.eth.get_block(log["blockNumber"])["timestamp"]
-        if block_time >= start_time:
-            depositor = "0x" + log["topics"][2].hex()[-40:]
-            depositors.add(depositor)
-            amount = int(log["data"][2:66], 16)
-            total_deposit += amount
+    # for log in deposit_logs:
+    #     block_time = web3.eth.get_block(log["blockNumber"])["timestamp"]
+    #     if block_time >= start_time:
+    #         depositor = "0x" + log["topics"][2].hex()[-40:]
+    #         depositors.add(depositor)
+    #         amount = int(log["data"][2:66], 16)
+    #         total_deposit += amount
 
-    for log in withdraw_logs:
-        block_time = web3.eth.get_block(log["blockNumber"])["timestamp"]
-        if block_time >= start_time:
-            amount = int(log["data"][2:66], 16)
-            total_withdraw += amount
+    # for log in withdraw_logs:
+    #     block_time = web3.eth.get_block(log["blockNumber"])["timestamp"]
+    #     if block_time >= start_time:
+    #         amount = int(log["data"][2:66], 16)
+    #         total_withdraw += amount
 
-    net_flow = total_deposit - total_withdraw
+    # net_flow = total_deposit - total_withdraw
 
     return {
         "total_assets": round(total_assets / DECIMALS, 2),
         "total_shares": round(total_shares / DECIMALS, 2),
         "share_price": round(share_price / 1e18, 6),
-        "unique_depositors": len(depositors),
-        "24h_deposits": round(total_deposit / DECIMALS, 2),
-        "24h_withdrawals": round(total_withdraw / DECIMALS, 2),
-        "net_flow_24h": round(net_flow / DECIMALS, 2)
+        "unique_depositors": 0,
+        "24h_deposits": 0,
+        "24h_withdrawals": 0,
+        "net_flow_24h": 0
     }
 
 def performanceHistory(bestAdapter):
@@ -261,30 +261,30 @@ def performanceHistory(bestAdapter):
     rebalance_event = web3.keccak(text="Rebalanced(address,uint256)").hex()
     harvest_event = web3.keccak(text="YieldHarvested(uint256,uint256)").hex()
 
-    logs = web3.eth.get_logs({
-        "fromBlock": 0,
-        "toBlock": "latest",
-        "address": vault_address,
-        "topics": [None]
-    })
+    # logs = web3.eth.get_logs({
+    #     "fromBlock": 0,
+    #     "toBlock": "latest",
+    #     "address": vault_address,
+    #     "topics": [None]
+    # })
 
-    performance_by_day = {}
-    cumulative_yield = 0
-    cumulative_gas = 0
+    # performance_by_day = {}
+    # cumulative_yield = 0
+    # cumulative_gas = 0
 
-    for log in logs:
-        block = web3.eth.get_block(log['blockNumber'])
-        date = datetime.utcfromtimestamp(block['timestamp']).strftime("%Y-%m-%d")
+    # for log in logs:
+    #     block = web3.eth.get_block(log['blockNumber'])
+    #     date = datetime.utcfromtimestamp(block['timestamp']).strftime("%Y-%m-%d")
 
-        if log['topics'][0].hex() == rebalance_event:
-            performance_by_day.setdefault(date, {"rebalances": 0})
-            performance_by_day[date]["rebalances"] += 1
+    #     if log['topics'][0].hex() == rebalance_event:
+    #         performance_by_day.setdefault(date, {"rebalances": 0})
+    #         performance_by_day[date]["rebalances"] += 1
 
-        elif log['topics'][0].hex() == harvest_event:
-            data = web3.codec.decode(["uint256", "uint256"], log["data"])
-            yield_amt, gas_amt = data
-            cumulative_yield += yield_amt
-            cumulative_gas += gas_amt
+    #     elif log['topics'][0].hex() == harvest_event:
+    #         data = web3.codec.decode(["uint256", "uint256"], log["data"])
+    #         yield_amt, gas_amt = data
+    #         cumulative_yield += yield_amt
+    #         cumulative_gas += gas_amt
 
     return {
         "performance_history": [{
@@ -293,9 +293,9 @@ def performanceHistory(bestAdapter):
             "total_assets": round(vault.functions.getTotalDeposits().call() / DECIMALS, 2),
             "rebalances": round(rebalance / 100)
         }],
-        "cumulative_yield_generated": cumulative_yield / 1e6,
-        "cumulative_gas_costs": cumulative_gas / 1e6,
-        "net_yield": (cumulative_yield - cumulative_gas) / 1e6
+        "cumulative_yield_generated": 0,
+        "cumulative_gas_costs": 0,
+        "net_yield": 0
     }
 
 def getFeeAnalytics():

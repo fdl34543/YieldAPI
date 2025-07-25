@@ -2,3 +2,4 @@ fastapi==0.116.1
 web3==6.17.2
 uvicorn==0.33.0
 python-dotenv==1.0.1
+sqlalchemy==2.0.41
