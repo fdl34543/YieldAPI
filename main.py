@@ -333,7 +333,7 @@ def getBestStrategy():
         })
     
     best = max(bestStrategy, key=lambda s: s['apy'])
-    print(f"✅ Best Strategy: {best['name']} ({best['address']}) with APY: {best['apy']}")
+    #print(f"✅ Best Strategy: {best['name']} ({best['address']}) with APY: {best['apy']}")
 
     return {
         "Best Strategy": best['name'],
