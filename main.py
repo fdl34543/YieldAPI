@@ -329,19 +329,22 @@ def getBestStrategy():
 
     # Example usage:
     for strategy in strategy_objs:
-        #print(strategy.name, strategy.address)
-        stra_address = web3.to_checksum_address(strategy.address)
-        straABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
-        stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
-        stra = web3.eth.contract(address=stra_address, abi=stra_abi)
+        try:
+            #print(strategy.name, strategy.address)
+            stra_address = web3.to_checksum_address(strategy.address)
+            straABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
+            stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
+            stra = web3.eth.contract(address=stra_address, abi=stra_abi)
 
-        apy = stra.functions.getCurrentAPY().call()
+            apy = stra.functions.getCurrentAPY().call()
 
-        bestStrategy.append({
-            "name": strategy.name,
-            "address": strategy.address,
-            "apy": apy / 10**2
-        })
+            bestStrategy.append({
+                "name": strategy.name,
+                "address": strategy.address,
+                "apy": apy / 10**2
+            })
+        except:
+            pass
     
     best = max(bestStrategy, key=lambda s: s['apy'])
     #print(f"✅ Best Strategy: {best['name']} ({best['address']}) with APY: {best['apy']}")
