@@ -8,6 +8,10 @@ import json
 from typing import NamedTuple
 from dotenv import load_dotenv
 import os
+# from sqlalchemy.orm import Session
+# from db import SessionLocal, FundDeployment
+# from typing import List
+import time
 
 app = FastAPI()
 
@@ -38,7 +42,27 @@ usdcABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action
 usdc_abi = json.loads(requests.get(usdcABI_ENDPOINT).json()['result'])
 usdc = web3.eth.contract(address=usdc_address, abi=usdc_abi)
 
+vlt_address = web3.to_checksum_address("0x31cc89CFC8F4fa96816dc006134d655169e68388")
+vltABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={vlt_address}&apikey={ETHERSCAN_API_KEY}'
+time.sleep(1)
+vlt_abi = json.loads(requests.get(vltABI_ENDPOINT).json()['result'])
+vlt = web3.eth.contract(address=vlt_address, abi=vlt_abi)
+
 account = web3.eth.account.from_key(PRIVATE_KEY)
+
+url = 'https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=15W7XAPWQMGR8I34AB5KK7XQAEIAS9PEGZ'
+response = requests.get(url).text
+datagwei = json.loads(response)
+gweinow = datagwei["result"]["SafeGasPrice"]
+gwein = float(gweinow) + 5
+
+# Dependency to get DB session
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 # Yield Metrics
 @app.get("/yield/metrics")
@@ -124,6 +148,43 @@ def all_strategies():
 def funds_idle():
     return getFundIdle()
 
+# Funds Deployment
+@app.get("/funds/deploy")
+def funds_deploy():
+    return fundDeployment()
+
+# Funds Deployment History
+@app.get("/funds/history")
+def funds_deploy():
+    return fundDeploymentHistory()
+
+# Rebalancing
+@app.get("/rebalancing")
+def execute_rebalancing():
+    return Rebalancing()
+
+# Monitor All Strategies
+@app.get("/monitor/all-strategies")
+def monitor_strategies():
+    return getAllStrategies()
+
+# Monitor All Strategies
+@app.get("/monitor/all-apy")
+def monitor_apy():
+    return allAPY()
+
+# Monitor total assets under management
+@app.get("/monitor/total-assets")
+def monitor_allAssets():
+    return allAssets()
+
+# Emergency Withdraw
+@app.get("/emergency-withdraw")
+def emergency_withdraw():
+    return emergencyWithdraw()
+
+#--- POST ---
+
 # Register Strategies
 class StrategyInput(BaseModel):
     name: str
@@ -198,6 +259,7 @@ def get_vault_stats(bestAdapter):
 
     with open("controllerABI.json", "r") as f:
         vault_abi = json.load(f)
+
     vault = web3.eth.contract(address=vault_address, abi=vault_abi)
 
     total_assets = vault.functions.getTotalDeposits().call()
@@ -305,10 +367,6 @@ def performanceHistory(bestAdapter):
     }
 
 def getFeeAnalytics():
-    vlt_address = web3.to_checksum_address("0x31cc89CFC8F4fa96816dc006134d655169e68388")
-    ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={vlt_address}&apikey={ETHERSCAN_API_KEY}'
-    vlt_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
-    vlt = web3.eth.contract(address=vlt_address, abi=vlt_abi)
 
     fees = vlt.functions.getFeeAnalytics().call()
 
@@ -356,7 +414,7 @@ def getBestStrategy():
     #print(f"✅ Best Strategy: {best['name']} ({best['address']}) with APY: {best['apy']}")
 
     return {
-        "Best Strategy": best['name'],
+        "name": best['name'],
         "Adapter": best['address'],
         "APY": best['apy']
     }
@@ -406,4 +464,264 @@ def getFundIdle():
     
     return {
         "idleBalance": idleBalance
+    }
+
+def fundDeployment():
+    MIN_DEPLOYMENT_AMOUNT = 1000 / 10**6
+
+    idleBalanced = usdc.functions.balanceOf(controller_address).call()
+    idleBalance = idleBalanced / 10**6
+
+    if idleBalance > MIN_DEPLOYMENT_AMOUNT:
+        bestStrat = getBestStrategy()
+        bestStratName = bestStrat["name"]
+        bestStratAdapt = bestStrat["Adapter"]
+
+        tx = controller.functions.deployToStrategy(bestStratName, idleBalanced).build_transaction({
+            "from": account.address,
+            "nonce": web3.eth.get_transaction_count(account.address),
+            "gas": 300_000,
+            "gasPrice": web3.to_wei("20", "gwei"),
+        })
+
+        # Sign and send transaction
+        signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+        now = datetime.now()
+
+        timeNow = now.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Save to DB
+        # db = SessionLocal()
+        # deployment = FundDeployment(
+        #     method = "fundDeployment",
+        #     strategy_name=bestStratName,
+        #     adapter_address=bestStratAdapt,
+        #     time_stamp=timeNow,
+        #     idle_balance=idleBalanced,
+        #     tx_hash=web3.to_hex(tx_hash)
+        # )
+        # db.add(deployment)
+        # db.commit()
+        # db.close()
+
+        return {
+            "message": "Fund Deployed",
+            "name": bestStratName,
+            "adapter": bestStratAdapt,
+            "time_stamp": timeNow,
+            "idleBalance": idleBalanced,
+            "tx_hash": web3.to_hex(tx_hash),
+        }
+
+def fundDeploymentHistory():
+    db: Session = SessionLocal()
+    try:
+        deployments = (
+            db.query(FundDeployment)
+            .order_by(FundDeployment.time_stamp.desc())  # Newest on top
+            .all()
+        )
+        result = []
+        for d in deployments:
+            result.append({
+                "id": d.id,
+                "method": d.method,
+                "strategy_name": d.strategy_name,
+                "adapter_address": d.adapter_address,
+                "time_stamp": d.time_stamp.strftime('%Y-%m-%d %H:%M:%S'),
+                "idle_balance": float(d.idle_balance),
+                "tx_hash": d.tx_hash
+            })
+        return result
+    finally:
+        db.close()
+
+def Rebalancing():
+    allStrategies = controller.functions.getAllStrategies().call()
+    #print(allStrategies)
+
+    strategy_objs = [
+        Strategy(name, address)
+        for name, address in zip(allStrategies[0], allStrategies[1])
+    ]
+
+    apyData = []
+
+    # Example usage:
+    for strategy in strategy_objs:
+        try:
+            #print(strategy.name, strategy.address)
+            stra_address = web3.to_checksum_address(strategy.address)
+            straABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
+            stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
+            stra = web3.eth.contract(address=stra_address, abi=stra_abi)
+
+            apy = stra.functions.getCurrentAPY().call()
+
+            apyData.append({
+                "name": strategy.name,
+                "address": strategy.address,
+                "apy": apy / 10**2
+            })
+        except:
+            pass
+
+    # Get highest APY
+    highest = max(apyData, key=lambda x: x['apy'])
+
+    # Get lowest APY
+    lowest = min(apyData, key=lambda x: x['apy'])
+
+    apyDifference = highest['apy'] - lowest['apy']
+
+    gas_price_gwei = gwein
+    gas_units = 300000
+
+    idleBalanced = usdc.functions.balanceOf(controller_address).call()
+
+    gas_price_eth = gas_price_gwei * 1e-9  # Gwei to ETH
+    gasEstimate = gas_units * gas_price_eth  # in ETH
+
+    annual_gain = idleBalanced * (apyDifference / 100)
+    gain_period = (30 / 365) * annual_gain
+    isProfitable = gain_period - gasEstimate
+
+    if isProfitable > 100:
+        tx = controller.functions.rebalance().build_transaction({
+            "from": account.address,
+            "nonce": web3.eth.get_transaction_count(account.address),
+            "gas": 300_000,
+            "gasPrice": web3.to_wei(str(gwein), "gwei"),
+        })
+
+        # Sign and send transaction
+        signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+        print(tx_hash)
+
+        now = datetime.now()
+
+        timeNow = now.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Save to DB
+        # db = SessionLocal()
+        # deployment = FundDeployment(
+        #     method = "rebalancing",
+        #     strategy_name=highest['name'],
+        #     adapter_address=highest['address'],
+        #     time_stamp=timeNow,
+        #     idle_balance=idleBalanced,
+        #     tx_hash=web3.to_hex(tx_hash)
+        # )
+        # db.add(deployment)
+        # db.commit()
+        # db.close()
+
+        return {
+            "message": "rebalancing",
+            "name": highest['name'],
+            "adapter": highest['address'],
+            "time_stamp": timeNow,
+            "idleBalance": idleBalanced,
+            "tx_hash": web3.to_hex(tx_hash),
+        }
+
+def allAPY():
+    allStrategies = controller.functions.getAllStrategies().call()
+    #print(allStrategies)
+
+    strategy_objs = [
+        Strategy(name, address)
+        for name, address in zip(allStrategies[0], allStrategies[1])
+    ]
+
+    apyData = []
+
+    # Example usage:
+    for strategy in strategy_objs:
+        try:
+            #print(strategy.name, strategy.address)
+            stra_address = web3.to_checksum_address(strategy.address)
+            straABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
+            stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
+            stra = web3.eth.contract(address=stra_address, abi=stra_abi)
+
+            apy = stra.functions.getCurrentAPY().call()
+
+            apyData.append({
+                "name": strategy.name,
+                "address": strategy.address,
+                "apy": apy / 10**2
+            })
+        except:
+            pass
+
+    return apyData
+
+def allAssets():
+    idleBalanced = usdc.functions.balanceOf(controller_address).call()
+    idleBalance = idleBalanced / 10**6
+
+    vtlAssets = vlt.functions.totalAssets().call()
+    vtlAssets = vtlAssets / 10**6
+
+    return {
+        "vaultTotalAssets": idleBalance,
+        "controllerIdleBalance": vtlAssets,
+    }
+
+def emergencyWithdraw():
+    bestStrat = getBestStrategy()
+    bestStratName = bestStrat["name"]
+    bestStratAdapt = bestStrat["Adapter"]
+
+    url = "https://yield-api.norexa.ai/vault/stats"
+    headers = {
+        "accept": "application/json"
+    }
+
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    total_assets = data["total_assets"]
+    total_asset = total_assets *10**6
+
+    tx = controller.functions.emergencyWithdraw(bestStratName).build_transaction({
+        "from": account.address,
+        "nonce": web3.eth.get_transaction_count(account.address),
+        "gas": 300_000,
+        "gasPrice": web3.to_wei("20", "gwei"),
+    })
+
+    # Sign and send transaction
+    signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+    now = datetime.now()
+
+    timeNow = now.strftime('%Y-%m-%d %H:%M:%S')
+
+    # Save to DB
+    # db = SessionLocal()
+    # deployment = FundDeployment(
+    #     method = "emergencyWithdraw",
+    #     strategy_name=bestStratName,
+    #     adapter_address=bestStratAdapt,
+    #     time_stamp=timeNow,
+    #     idle_balance=total_asset,
+    #     tx_hash=web3.to_hex(tx_hash)
+    # )
+    # db.add(deployment)
+    # db.commit()
+    # db.close()
+
+    return {
+        "message": "Emergency Withdraw",
+        "name": bestStratName,
+        "adapter": bestStratAdapt,
+        "time_stamp": timeNow,
+        "idleBalance": total_asset,
+        "tx_hash": web3.to_hex(tx_hash),
     }
