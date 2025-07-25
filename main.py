@@ -33,6 +33,11 @@ CABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=ge
 controller_abi = json.loads(requests.get(CABI_ENDPOINT).json()['result'])
 controller = web3.eth.contract(address=controller_address, abi=controller_abi)
 
+usdc_address = web3.to_checksum_address("0xcBa412b6123A6f94348F25fAC5f4CD6c132D83D9")
+usdcABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={usdc_address}&apikey={ETHERSCAN_API_KEY}'
+usdc_abi = json.loads(requests.get(usdcABI_ENDPOINT).json()['result'])
+usdc = web3.eth.contract(address=usdc_address, abi=usdc_abi)
+
 account = web3.eth.account.from_key(PRIVATE_KEY)
 
 # Yield Metrics
@@ -114,10 +119,15 @@ def best_strategies():
 def all_strategies():
     return getAllStrategies()
 
+# Funds Idle
+@app.get("/funds/idle")
+def funds_idle():
+    return getFundIdle()
+
+# Register Strategies
 class StrategyInput(BaseModel):
     name: str
     address: str
-
 
 @app.post("/strategies/add")
 async def add_strategy(data: StrategyInput):
@@ -126,6 +136,7 @@ async def add_strategy(data: StrategyInput):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
 
 # --- Core logic from your script below ---
 
@@ -380,5 +391,10 @@ def register_strategy(name: str, address: str):
         "tx_hash": web3.to_hex(tx_hash),
     }
 
-#getBestStrategy()
-#getAllStrategies()
+def getFundIdle():
+    idleBalance = usdc.functions.balanceOf(controller_address).call()
+    idleBalance = idleBalance / 10**6
+    
+    return {
+        "idleBalance": idleBalance
+    }
