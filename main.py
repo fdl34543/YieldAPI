@@ -193,9 +193,11 @@ def get_best_yield_usdc():
 
 def get_vault_stats(bestAdapter):
     vault_address = web3.to_checksum_address(bestAdapter)
-    ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={bestAdapter}&apikey={ETHERSCAN_API_KEY}'
-    vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
-    print(ABI_ENDPOINT)
+    # ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
+    # vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
+
+    with open("controllerABI.json", "r") as f:
+        vault_abi = json.load(f)
     vault = web3.eth.contract(address=vault_address, abi=vault_abi)
 
     total_assets = vault.functions.getTotalDeposits().call()
@@ -254,8 +256,11 @@ def get_vault_stats(bestAdapter):
 
 def performanceHistory(bestAdapter):
     vault_address = web3.to_checksum_address(bestAdapter)
-    ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={bestAdapter}&apikey={ETHERSCAN_API_KEY}'
-    vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
+    # ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
+    # vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
+
+    with open("controllerABI.json", "r") as f:
+        vault_abi = json.load(f)
     vault = web3.eth.contract(address=vault_address, abi=vault_abi)
 
     rebalance = controller.functions.rebalanceThreshold().call()
