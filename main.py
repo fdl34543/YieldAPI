@@ -789,7 +789,7 @@ def unpauseAgent():
     timeNow = now.strftime('%Y-%m-%d %H:%M:%S')
 
     return {
-        "message": "Controller Paused",
+        "message": "Controller Unpaused",
         "time_stamp": timeNow,
         "tx_hash": web3.to_hex(tx_hash),
     }
