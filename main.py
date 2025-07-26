@@ -200,7 +200,7 @@ def pause_agent(api_key: str):
     return pauseAgent()
 
 # Unpause Agent
-@app.get("/pause")
+@app.get("/unpause")
 def unpause_agent(api_key: str):
     verify_api_key(api_key)
     return unpauseAgent()
