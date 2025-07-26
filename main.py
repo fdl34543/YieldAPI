@@ -193,6 +193,18 @@ def emergency_withdraw(api_key: str):
     verify_api_key(api_key)
     return emergencyWithdraw()
 
+# Pause Agent
+@app.get("/pause")
+def pause_agent(api_key: str):
+    verify_api_key(api_key)
+    return pauseAgent()
+
+# Unpause Agent
+@app.get("/pause")
+def unpause_agent(api_key: str):
+    verify_api_key(api_key)
+    return unpauseAgent()
+
 #========= POST =========
 
 # Register Strategies
@@ -319,7 +331,7 @@ def get_vault_stats(bestAdapter):
     # net_flow = total_deposit - total_withdraw
 
     return {
-        "total_assets": round(total_assets / DECIMALS, 2),
+        "total_assets": round(total_assets, 2),
         "total_shares": round(total_shares / DECIMALS, 2),
         "share_price": round(share_price / 1e18, 6),
         "unique_depositors": 0,
@@ -735,5 +747,49 @@ def emergencyWithdraw():
         "adapter": bestStratAdapt,
         "time_stamp": timeNow,
         "idleBalance": total_asset,
+        "tx_hash": web3.to_hex(tx_hash),
+    }
+
+def pauseAgent():
+    tx = controller.functions.pause().build_transaction({
+        "from": account.address,
+        "nonce": web3.eth.get_transaction_count(account.address),
+        "gas": 300_000,
+        "gasPrice": web3.to_wei("20", "gwei"),
+    })
+
+    # Sign and send transaction
+    signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+    now = datetime.now()
+
+    timeNow = now.strftime('%Y-%m-%d %H:%M:%S')
+
+    return {
+        "message": "Controller Paused",
+        "time_stamp": timeNow,
+        "tx_hash": web3.to_hex(tx_hash),
+    }
+
+def unpauseAgent():
+    tx = controller.functions.unpause().build_transaction({
+        "from": account.address,
+        "nonce": web3.eth.get_transaction_count(account.address),
+        "gas": 300_000,
+        "gasPrice": web3.to_wei("20", "gwei"),
+    })
+
+    # Sign and send transaction
+    signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+    now = datetime.now()
+
+    timeNow = now.strftime('%Y-%m-%d %H:%M:%S')
+
+    return {
+        "message": "Controller Paused",
+        "time_stamp": timeNow,
         "tx_hash": web3.to_hex(tx_hash),
     }
