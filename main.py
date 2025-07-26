@@ -272,9 +272,11 @@ def get_vault_stats(bestAdapter):
 
     vault = web3.eth.contract(address=vault_address, abi=vault_abi)
 
-    total_assets = vault.functions.getTotalDeposits().call()
+    #total_assets = vault.functions.getTotalDeposits().call()
     total_shares = vault.functions.getTotalShares().call()
     share_price = vault.functions.sharePrice().call()
+
+    total_assets = (total_shares / DECIMALS) * (share_price/ 10e17)
 
     # deposit_topic = web3.keccak(text="Deposit(address,address,uint256,uint256)").hex()
     # withdraw_topic = web3.keccak(text="Withdraw(address,address,uint256,uint256)").hex()
