@@ -681,8 +681,8 @@ def allAssets():
     vtlAssets = vtlAssets / 10**6
 
     return {
-        "vaultTotalAssets": idleBalance,
-        "controllerIdleBalance": vtlAssets,
+        "vaultTotalAssets": vtlAssets,
+        "controllerIdleBalance": idleBalance,
     }
 
 def emergencyWithdraw():
