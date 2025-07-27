@@ -378,11 +378,16 @@ def performanceHistory(bestAdapter):
     #         cumulative_yield += yield_amt
     #         cumulative_gas += gas_amt
 
+    total_shares = vault.functions.getTotalShares().call()
+    share_price = vault.functions.sharePrice().call()
+
+    total_assets = (total_shares / DECIMALS) * (share_price/ 10e17)
+
     return {
         "performance_history": [{
             "date": datetime.utcnow().strftime("%Y-%m-%d"),
             "apy": round(vault.functions.getCurrentAPY().call() / 100, 2),
-            "total_assets": round(vault.functions.getTotalDeposits().call() / DECIMALS, 2),
+            "total_assets": round(total_assets, 2),
             "rebalances": round(rebalance / 100)
         }],
         "cumulative_yield_generated": 0,
@@ -608,7 +613,7 @@ def Rebalancing():
     gas_price_eth = gas_price_gwei * 1e-9  # Gwei to ETH
     gasEstimate = gas_units * gas_price_eth  # in ETH
 
-    annual_gain = idleBalanced * (apyDifference / 100)
+    annual_gain = 20000000 * (apyDifference / 100)
     gain_period = (30 / 365) * annual_gain
     isProfitable = gain_period - gasEstimate
 
@@ -623,8 +628,6 @@ def Rebalancing():
         # Sign and send transaction
         signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
         tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-
-        print(tx_hash)
 
         now = datetime.now()
 
