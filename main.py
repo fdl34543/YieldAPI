@@ -684,7 +684,7 @@ def allAPY():
                 "apy": apy / 10**2
             })
         except:
-            pass
+            print()
 
     return apyData
 
