@@ -331,7 +331,7 @@ def get_vault_stats(bestAdapter):
     # net_flow = total_deposit - total_withdraw
 
     return {
-        "total_assets": round(total_assets, 2),
+        "total_assets": round(total_assets, 5),
         "total_shares": round(total_shares / DECIMALS, 2),
         "share_price": round(share_price / 1e18, 6),
         "unique_depositors": 0,
