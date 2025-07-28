@@ -28,7 +28,8 @@ app.add_middleware(
 VALID_API_KEY = "39a4f6be5b3a4d08ddaf45944cd8ce42"
 
 # Config
-SEPOLIA_RPC = "https://sepolia.infura.io/v3/2ba3d93485814c04b0106479c8e9973d"
+INFURA_KEY = os.getenv("INFURA_KEY")
+SEPOLIA_RPC = f"https://sepolia.infura.io/v3/{INFURA_KEY}"
 ETHERSCAN_API_KEY = "15W7XAPWQMGR8I34AB5KK7XQAEIAS9PEGZ"
 web3 = Web3(Web3.HTTPProvider(SEPOLIA_RPC))
 DECIMALS = 1e6  # Adjust if vault uses 1e18
