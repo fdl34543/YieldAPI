@@ -724,7 +724,10 @@ def emergencyWithdraw():
         "from": account.address,
         "nonce": web3.eth.get_transaction_count(account.address),
         "gas": 300_000,
-        "gasPrice": web3.to_wei("20", "gwei"),
+        "maxFeePerGas": web3.to_wei("20", "gwei"),
+        "maxPriorityFeePerGas": web3.to_wei("10", "gwei"),
+        # "chainId": 11155111,  # Sepolia
+        "type": 2
     })
 
     # Sign and send transaction
