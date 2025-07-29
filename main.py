@@ -29,25 +29,26 @@ VALID_API_KEY = "39a4f6be5b3a4d08ddaf45944cd8ce42"
 
 # Config
 INFURA_KEY = os.getenv("INFURA_KEY")
-# SEPOLIA_RPC = f"https://sepolia.infura.io/v3/0a81650b3ed54098b17759f635026a26"
-SEPOLIA_RPC = f"https://eth-sepolia.g.alchemy.com/v2/ZUVnw8JKo7RBHLiXiyjuhEH1trRDNodx"
+SEPOLIA_RPC = f"https://mainnet.infura.io/v3/{INFURA_KEY}"
+#SEPOLIA_RPC = f"https://sepolia.infura.io/v3/{INFURA_KEY}"
+# SEPOLIA_RPC = f"https://eth-sepolia.g.alchemy.com/v2/ZUVnw8JKo7RBHLiXiyjuhEH1trRDNodx"
 ETHERSCAN_API_KEY = "15W7XAPWQMGR8I34AB5KK7XQAEIAS9PEGZ"
 web3 = Web3(Web3.HTTPProvider(SEPOLIA_RPC))
 DECIMALS = 1e6  # Adjust if vault uses 1e18
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 
-controller_address = web3.to_checksum_address("0xcC0bdAb358f42EB86e09B6afD1109F3e59d0ab9B")
-CABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address=0xBD7189cD389f3CfDa49F5c6F72C1508a198EA8a6&apikey={ETHERSCAN_API_KEY}'
+controller_address = web3.to_checksum_address("0x6E3EAB47A4df8c27f04B0FDA530C5594f3366e61")
+CABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address=0x6E3EAB47A4df8c27f04B0FDA530C5594f3366e61&apikey={ETHERSCAN_API_KEY}'
 controller_abi = json.loads(requests.get(CABI_ENDPOINT).json()['result'])
 controller = web3.eth.contract(address=controller_address, abi=controller_abi)
 
-usdc_address = web3.to_checksum_address("0xcBa412b6123A6f94348F25fAC5f4CD6c132D83D9")
-usdcABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={usdc_address}&apikey={ETHERSCAN_API_KEY}'
+usdc_address = web3.to_checksum_address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
+usdcABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address=0x43506849D7C04F9138D1A2050bbF3A0c054402dd&apikey={ETHERSCAN_API_KEY}'
 usdc_abi = json.loads(requests.get(usdcABI_ENDPOINT).json()['result'])
 usdc = web3.eth.contract(address=usdc_address, abi=usdc_abi)
 
-vlt_address = web3.to_checksum_address("0x31cc89CFC8F4fa96816dc006134d655169e68388")
-vltABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={vlt_address}&apikey={ETHERSCAN_API_KEY}'
+vlt_address = web3.to_checksum_address("0x8CE2E25fa9E0F56b42668B4Af1AB8d1b404a1e10")
+vltABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vlt_address}&apikey={ETHERSCAN_API_KEY}'
 time.sleep(1)
 vlt_abi = json.loads(requests.get(vltABI_ENDPOINT).json()['result'])
 vlt = web3.eth.contract(address=vlt_address, abi=vlt_abi)
@@ -73,57 +74,57 @@ def verify_api_key(api_key: str):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 # Yield Metrics
-@app.get("/yield/metrics")
-def yield_metrics():
-    url = "https://yields.llama.fi/pools"
-    response = requests.get(url)
-    data = response.json()
+# @app.get("/yield/metrics")
+# def yield_metrics():
+#     url = "https://yields.llama.fi/pools"
+#     response = requests.get(url)
+#     data = response.json()
 
-    protocols = ["aave-v3", "compound-v3"]
-    adapter = {
-        "aave-v3": "0xa9BE08b7078EAFB2a42866bD273BC7454251663E",
-        "compound-v3": "0xFc11541A0A36747Bf278287fc67F6BbBeFd6E981"
-    }
+#     protocols = ["aave-v3", "compound-v3"]
+#     adapter = {
+#         "aave-v3": "0xa9BE08b7078EAFB2a42866bD273BC7454251663E",
+#         "compound-v3": "0xFc11541A0A36747Bf278287fc67F6BbBeFd6E981"
+#     }
 
-    best_pool = None
-    best_apy = 0.0
-    all_apys = []
+#     best_pool = None
+#     best_apy = 0.0
+#     all_apys = []
 
-    for pool in data.get("data", []):
-        project = pool.get("project", "").lower()
-        symbol = pool.get("symbol", "").upper()
-        chain = pool.get("chain", "")
-        apy = pool.get("apy", 0.0)
+#     for pool in data.get("data", []):
+#         project = pool.get("project", "").lower()
+#         symbol = pool.get("symbol", "").upper()
+#         chain = pool.get("chain", "")
+#         apy = pool.get("apy", 0.0)
 
-        if project in protocols and symbol == "USDC" and chain == "Ethereum":
-            if apy > best_apy:
-                best_apy = apy
-                best_pool = pool
+#         if project in protocols and symbol == "USDC" and chain == "Ethereum":
+#             if apy > best_apy:
+#                 best_apy = apy
+#                 best_pool = pool
 
-    for pool in data.get("data", []):
-        project = pool.get("project", "").lower()
-        symbol = pool.get("symbol", "").upper()
-        chain = pool.get("chain", "")
-        apy = pool.get("apy", 0.0)
+#     for pool in data.get("data", []):
+#         project = pool.get("project", "").lower()
+#         symbol = pool.get("symbol", "").upper()
+#         chain = pool.get("chain", "")
+#         apy = pool.get("apy", 0.0)
 
-        if project in protocols and symbol == "USDC" and chain == "Ethereum":
-            all_apys.append({
-                "protocol": pool.get("project"),
-                "apy": apy,
-                "24h_avg_apy": pool.get("apyPct1D", 0),
-                "7d_avg_apy": pool.get("apyPct7D", 0),
-                "performance_vs_best": round((apy / best_apy) * 100, 2) if best_apy else 0.0
-            })
+#         if project in protocols and symbol == "USDC" and chain == "Ethereum":
+#             all_apys.append({
+#                 "protocol": pool.get("project"),
+#                 "apy": apy,
+#                 "24h_avg_apy": pool.get("apyPct1D", 0),
+#                 "7d_avg_apy": pool.get("apyPct7D", 0),
+#                 "performance_vs_best": round((apy / best_apy) * 100, 2) if best_apy else 0.0
+#             })
 
-    best_protocol = best_pool["project"].lower() if best_pool else None
+#     best_protocol = best_pool["project"].lower() if best_pool else None
 
-    return {
-        "best_protocol": best_protocol,
-        "apy": best_apy,
-        "adapter": adapter.get(best_protocol),
-        "chain": best_pool["chain"] if best_pool else None,
-        "all_apys": all_apys
-    }
+#     return {
+#         "best_protocol": best_protocol,
+#         "apy": best_apy,
+#         "adapter": adapter.get(best_protocol),
+#         "chain": best_pool["chain"] if best_pool else None,
+#         "all_apys": all_apys
+#     }
 
 # Vault Stats
 @app.get("/vault/stats")
@@ -278,11 +279,11 @@ def get_best_yield_usdc():
 
 def get_vault_stats(bestAdapter):
     vault_address = web3.to_checksum_address(bestAdapter)
-    # ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
-    # vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
+    ABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
+    vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
 
-    with open("controllerABI.json", "r") as f:
-        vault_abi = json.load(f)
+    # with open("controllerABI.json", "r") as f:
+    #     vault_abi = json.load(f)
 
     vault = web3.eth.contract(address=vault_address, abi=vault_abi)
 
@@ -344,11 +345,12 @@ def get_vault_stats(bestAdapter):
 
 def performanceHistory(bestAdapter):
     vault_address = web3.to_checksum_address(bestAdapter)
-    # ABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
-    # vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
+    ABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
+    vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
 
-    with open("controllerABI.json", "r") as f:
-        vault_abi = json.load(f)
+    # with open("controllerABI.json", "r") as f:
+    #     vault_abi = json.load(f)
+
     vault = web3.eth.contract(address=vault_address, abi=vault_abi)
 
     rebalance = controller.functions.rebalanceThreshold().call()
@@ -427,7 +429,7 @@ def getBestStrategy():
         try:
             #print(strategy.name, strategy.address)
             stra_address = web3.to_checksum_address(strategy.address)
-            straABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
+            straABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
             stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
             stra = web3.eth.contract(address=stra_address, abi=stra_abi)
 
@@ -465,7 +467,7 @@ def register_strategy(name: str, address: str):
     adapter_address = web3.to_checksum_address(address)
 
     # Validate ABI
-    abi_url = f"https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={adapter_address}&apikey={ETHERSCAN_API_KEY}"
+    abi_url = f"https://api.etherscan.io/api?module=contract&action=getabi&address={adapter_address}&apikey={ETHERSCAN_API_KEY}"
     abi_response = requests.get(abi_url).json()
     if abi_response.get("status") != "1":
         raise ValueError("Invalid adapter contract address or ABI not found")
@@ -585,7 +587,7 @@ def Rebalancing():
         try:
             #print(strategy.name, strategy.address)
             stra_address = web3.to_checksum_address(strategy.address)
-            straABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
+            straABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
             stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
             stra = web3.eth.contract(address=stra_address, abi=stra_abi)
 
@@ -674,7 +676,7 @@ def allAPY():
         try:
             #print(strategy.name, strategy.address)
             stra_address = web3.to_checksum_address(strategy.address)
-            straABI_ENDPOINT = f'https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
+            straABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
             stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
             stra = web3.eth.contract(address=stra_address, abi=stra_abi)
 
