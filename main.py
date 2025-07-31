@@ -49,6 +49,7 @@ oracle = web3.eth.contract(address=oracle_address, abi=oracle_abi)
 
 usdc_address = web3.to_checksum_address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
 usdcABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address=0x43506849D7C04F9138D1A2050bbF3A0c054402dd&apikey={ETHERSCAN_API_KEY}'
+time.sleep(2)
 usdc_abi = json.loads(requests.get(usdcABI_ENDPOINT).json()['result'])
 usdc = web3.eth.contract(address=usdc_address, abi=usdc_abi)
 
