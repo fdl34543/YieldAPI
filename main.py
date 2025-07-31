@@ -17,7 +17,7 @@ app = FastAPI()
 
 load_dotenv()
 
-# Allow frontend to access the API (change origin for prod)
+# Allow frontend to access the API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
