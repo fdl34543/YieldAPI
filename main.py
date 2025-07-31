@@ -242,7 +242,7 @@ async def funds_deploy_to_strategy(data: DeployStrat):
         raise HTTPException(status_code=500, detail=str(e))
     
 
-# --- Core logic from your script below ---
+# --- Core logic from your script below ----
 
 def get_best_yield_usdc():
     url = "https://yields.llama.fi/pools"
