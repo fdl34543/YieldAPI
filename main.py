@@ -661,7 +661,7 @@ def Rebalancing():
         tx = controller.functions.rebalance().build_transaction({
             "from": account.address,
             "nonce": web3.eth.get_transaction_count(account.address),
-            "gas": 500_000,
+            "gas": 900_000,
             "maxFeePerGas": web3.to_wei("20", "gwei"),
             "maxPriorityFeePerGas": web3.to_wei("10", "gwei"),
             "chainId": 1,
