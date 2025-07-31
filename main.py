@@ -37,10 +37,15 @@ web3 = Web3(Web3.HTTPProvider(SEPOLIA_RPC))
 DECIMALS = 1e6  # Adjust if vault uses 1e18
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 
-controller_address = web3.to_checksum_address("0x6E3EAB47A4df8c27f04B0FDA530C5594f3366e61")
-CABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address=0x6E3EAB47A4df8c27f04B0FDA530C5594f3366e61&apikey={ETHERSCAN_API_KEY}'
+controller_address = web3.to_checksum_address("0x4851B11C449ab0Ed8a8071edF47A5f880818cfC0")
+CABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address=0x4851B11C449ab0Ed8a8071edF47A5f880818cfC0&apikey={ETHERSCAN_API_KEY}'
 controller_abi = json.loads(requests.get(CABI_ENDPOINT).json()['result'])
 controller = web3.eth.contract(address=controller_address, abi=controller_abi)
+
+oracle_address = web3.to_checksum_address("0xEdA6eF355105778996c113C639A763533D18425b")
+OABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address=0xEdA6eF355105778996c113C639A763533D18425b&apikey={ETHERSCAN_API_KEY}'
+oracle_abi = json.loads(requests.get(OABI_ENDPOINT).json()['result'])
+oracle = web3.eth.contract(address=oracle_address, abi=oracle_abi)
 
 usdc_address = web3.to_checksum_address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
 usdcABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address=0x43506849D7C04F9138D1A2050bbF3A0c054402dd&apikey={ETHERSCAN_API_KEY}'
@@ -223,6 +228,19 @@ async def add_strategy(data: StrategyInput):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+# Deploy Funds To Strat
+class DeployStrat(BaseModel):
+    name: str
+    amount: int
+
+@app.post("/funds/deploy/strat")
+async def funds_deploy_to_strategy(data: DeployStrat):
+    try:
+        result = fundDeploytoStrat(data.name, data.amount)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 
 # --- Core logic from your script below ---
 
@@ -293,47 +311,17 @@ def get_vault_stats(bestAdapter):
 
     total_assets = (total_shares / DECIMALS) * (share_price/ 10e17)
 
-    # deposit_topic = web3.keccak(text="Deposit(address,address,uint256,uint256)").hex()
-    # withdraw_topic = web3.keccak(text="Withdraw(address,address,uint256,uint256)").hex()
+    idleBalanced = usdc.functions.balanceOf(controller_address).call()
+    idleBalance = idleBalanced / 10**6
 
-    # latest_block = web3.eth.block_number
-    # latest_time = web3.eth.get_block(latest_block)["timestamp"]
-    # start_time = latest_time - 86400
-
-    # from_block = max(latest_block - 20000, 0)
-
-    # def get_logs(topic):
-    #     return web3.eth.get_logs({
-    #         "fromBlock": from_block,
-    #         "toBlock": latest_block,
-    #         "address": vault_address,
-    #         "topics": [topic]
-    #     })
-
-    # deposit_logs = get_logs(deposit_topic)
-    # withdraw_logs = get_logs(withdraw_topic)
-
-    # depositors = set()
-    # total_deposit = 0
-    # total_withdraw = 0
-
-    # for log in deposit_logs:
-    #     block_time = web3.eth.get_block(log["blockNumber"])["timestamp"]
-    #     if block_time >= start_time:
-    #         depositor = "0x" + log["topics"][2].hex()[-40:]
-    #         depositors.add(depositor)
-    #         amount = int(log["data"][2:66], 16)
-    #         total_deposit += amount
-
-    # for log in withdraw_logs:
-    #     block_time = web3.eth.get_block(log["blockNumber"])["timestamp"]
-    #     if block_time >= start_time:
-    #         amount = int(log["data"][2:66], 16)
-    #         total_withdraw += amount
-
-    # net_flow = total_deposit - total_withdraw
+    vtlAssets = vlt.functions.totalAssets().call()
+    vtlAssets = vtlAssets / 10**6
 
     return {
+        "BalanceUnderManagement":{
+            "vaultTotalAssets": vtlAssets,
+            "controllerIdleBalance": idleBalance,
+        },
         "total_assets": round(total_assets, 5),
         "total_shares": round(total_shares / DECIMALS, 2),
         "share_price": round(share_price / 1e18, 6),
@@ -500,6 +488,52 @@ def getFundIdle():
         "idleBalance": idleBalance
     }
 
+def fundDeploytoStrat(toStrat,amount):
+    MIN_DEPLOYMENT_AMOUNT = 1000 / 10**6
+
+    amount = amount * 10**6
+
+    if amount > MIN_DEPLOYMENT_AMOUNT:
+        
+        bestStratName = toStrat
+
+        tx = controller.functions.deployToStrategy(bestStratName, amount).build_transaction({
+            "from": account.address,
+            "nonce": web3.eth.get_transaction_count(account.address),
+            "gas": 300_000,
+            "gasPrice": web3.to_wei("20", "gwei"),
+        })
+
+        # Sign and send transaction
+        signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+        now = datetime.now()
+
+        timeNow = now.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Save to DB
+        # db = SessionLocal()
+        # deployment = FundDeployment(
+        #     method = "fundDeployment",
+        #     strategy_name=bestStratName,
+        #     adapter_address=bestStratAdapt,
+        #     time_stamp=timeNow,
+        #     idle_balance=idleBalanced,
+        #     tx_hash=web3.to_hex(tx_hash)
+        # )
+        # db.add(deployment)
+        # db.commit()
+        # db.close()
+
+        return {
+            "message": "Fund Deployed",
+            "name": bestStratName,
+            "time_stamp": timeNow,
+            "amount": amount,
+            "tx_hash": web3.to_hex(tx_hash),
+        }
+
 def fundDeployment():
     MIN_DEPLOYMENT_AMOUNT = 1000 / 10**6
 
@@ -586,13 +620,7 @@ def Rebalancing():
     # Example usage:
     for strategy in strategy_objs:
         try:
-            #print(strategy.name, strategy.address)
-            stra_address = web3.to_checksum_address(strategy.address)
-            straABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
-            stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
-            stra = web3.eth.contract(address=stra_address, abi=stra_abi)
-
-            apy = stra.functions.getCurrentAPY().call()
+            apy = oracle.functions.getAPY(strategy.address).call()
 
             apyData.append({
                 "name": strategy.name,
@@ -600,7 +628,7 @@ def Rebalancing():
                 "apy": apy / 10**2
             })
         except:
-            pass
+            print()
 
     # Get highest APY
     highest = max(apyData, key=lambda x: x['apy'])
@@ -622,12 +650,21 @@ def Rebalancing():
     gain_period = (30 / 365) * annual_gain
     isProfitable = gain_period - gasEstimate
 
+    # gas_estimate = web3.eth.estimate_gas({
+    #     "from": account.address,
+    #     "to": controller.address,  # Ensure the 'to' address is the controller contract
+    #     "data": controller.functions.rebalance().encode_transaction_data()
+    # })
+
     if isProfitable > 100:
         tx = controller.functions.rebalance().build_transaction({
             "from": account.address,
             "nonce": web3.eth.get_transaction_count(account.address),
-            "gas": 300_000,
-            "gasPrice": web3.to_wei(str(gwein), "gwei"),
+            "gas": 500_000,
+            "maxFeePerGas": web3.to_wei("20", "gwei"),
+            "maxPriorityFeePerGas": web3.to_wei("10", "gwei"),
+            "chainId": 1,
+            "type": 2
         })
 
         # Sign and send transaction
@@ -657,13 +694,11 @@ def Rebalancing():
             "name": highest['name'],
             "adapter": highest['address'],
             "time_stamp": timeNow,
-            "idleBalance": idleBalanced,
             "tx_hash": web3.to_hex(tx_hash),
         }
 
 def allAPY():
     allStrategies = controller.functions.getAllStrategies().call()
-    #print(allStrategies)
 
     strategy_objs = [
         Strategy(name, address)
@@ -675,13 +710,7 @@ def allAPY():
     # Example usage:
     for strategy in strategy_objs:
         try:
-            #print(strategy.name, strategy.address)
-            stra_address = web3.to_checksum_address(strategy.address)
-            straABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
-            stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
-            stra = web3.eth.contract(address=stra_address, abi=stra_abi)
-
-            apy = stra.functions.getCurrentAPY().call()
+            apy = oracle.functions.getAPY(strategy.address).call()
 
             apyData.append({
                 "name": strategy.name,
