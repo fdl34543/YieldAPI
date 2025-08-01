@@ -38,6 +38,7 @@ ETHERSCAN_API_KEY = "15W7XAPWQMGR8I34AB5KK7XQAEIAS9PEGZ"
 web3 = Web3(Web3.HTTPProvider(SEPOLIA_RPC))
 DECIMALS = 1e6  # Adjust if vault uses 1e18
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
+account = web3.eth.account.from_key(PRIVATE_KEY)
 
 controller_address = web3.to_checksum_address("0x4851B11C449ab0Ed8a8071edF47A5f880818cfC0")
 CABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address=0x4851B11C449ab0Ed8a8071edF47A5f880818cfC0&apikey={ETHERSCAN_API_KEY}'
@@ -61,7 +62,32 @@ time.sleep(1)
 vlt_abi = json.loads(requests.get(vltABI_ENDPOINT).json()['result'])
 vlt = web3.eth.contract(address=vlt_address, abi=vlt_abi)
 
-account = web3.eth.account.from_key(PRIVATE_KEY)
+erc20_abi = [
+    {
+        "constant": True,
+        "inputs": [{"name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "payable": False,
+        "stateMutability": "view",
+        "type": "function",
+    }
+]
+
+comet_address = web3.to_checksum_address("0xc3d688B66703497DAA19211EEdff47f25384cdc3")
+comet = web3.eth.contract(address=comet_address, abi=erc20_abi)
+
+ausd_address = web3.to_checksum_address("0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c")
+ausd = web3.eth.contract(address=ausd_address, abi=erc20_abi)
+
+morphoV_address = web3.to_checksum_address("0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB")
+morphoV = web3.eth.contract(address=comet_address, abi=erc20_abi)
+
+yearnV_address = web3.to_checksum_address("0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE")
+yearnV = web3.eth.contract(address=yearnV_address, abi=erc20_abi)
+
+vesperP_address = web3.to_checksum_address("0x0C49066C0808Ee8c673553B7cbd99BCC9ABf113d")
+vesperP = web3.eth.contract(address=vesperP_address, abi=erc20_abi)
 
 url = 'https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=15W7XAPWQMGR8I34AB5KK7XQAEIAS9PEGZ'
 response = requests.get(url).text
@@ -69,13 +95,7 @@ datagwei = json.loads(response)
 gweinow = datagwei["result"]["SafeGasPrice"]
 gwein = float(gweinow) + 5
 
-# Dependency to get DB session
-# def get_db():
-#     db = SessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
+
 
 def verify_api_key(api_key: str):
     if api_key != VALID_API_KEY:
@@ -195,6 +215,11 @@ def best_strategies():
 @app.get("/strategies/all")
 def all_strategies():
     return getAllStrategies()
+
+# Strategies Current Allocation
+@app.get("/strategies/allocation")
+def strategies_allocation():
+    return getStrategiesAllocation()
 
 # Funds Idle
 @app.get("/funds/idle")
@@ -595,6 +620,21 @@ def register_strategy(name: str, address: str):
         "strategy": name,
         "adapter": adapter_address,
         "tx_hash": web3.to_hex(tx_hash),
+    }
+
+def getStrategiesAllocation():
+    compound = comet.functions.balanceOf("0x53CB26F7E9d982121BcFe8506111fd9Ab0f99A1f").call()
+    Aave = ausd.functions.balanceOf("0x5c44B10AF7Ed8F18751B56DF80A84B57dd3bfEcD").call()
+    Morpho = morphoV.functions.balanceOf("0xedAf7B13Cf5736612825B4aFA88D18Edab8f7592").call()
+    Yearn = yearnV.functions.balanceOf("0x93B89230465e664f37C41cfc66B2924182eaEa52").call()
+    Vesper = vesperP.functions.balanceOf("0xA8e0e78B8949247CbCa68656d0c7b7512f3655D2").call()
+
+    return {
+        "Compound": round(compound / 10**6, 4),
+        "Aave": round(Aave / 10**6, 4),
+        "Morpho": round(Morpho / 10**6, 4),
+        "Yearn": round(Yearn / 10**6, 4),
+        "Vesper": round(Vesper / 10**12, 4)
     }
 
 def getFundIdle():
