@@ -152,6 +152,40 @@ def vault_performance():
     adapter = getBestStrategy()["Adapter"]
     return performanceHistory(adapter)
 
+# User Position
+@app.get("/user/{address}/position")
+def get_user_position(address: str):
+    # 1. Current shares
+    raw_shares = vlt.functions.balanceOf(address).call()
+    shares = raw_shares / 1e6
+
+    # 2. Share price / assets per share
+    share_price = vlt.functions.convertToAssets(10**6).call() / 1e6
+    value_usd = shares * share_price
+
+    # 3. Historical deposits / withdrawals
+    deposits, withdrawals = get_user_transactions(address)  # <-- use your etherscan filter
+    total_deposited = sum(d["assets"] for d in deposits)
+    total_withdrawn = sum(w["assets"] for w in withdrawals)
+
+    # Shares received = deposited assets / avg price at deposit time
+    shares_received = sum(d["shares"] for d in deposits)
+    avg_entry_price = (total_deposited / shares_received) if shares_received else 0
+
+    # 4. Unrealized profit
+    unrealized_profit = value_usd - (shares * avg_entry_price)
+
+    # 5. Lifetime earnings
+    lifetime_earnings = (total_withdrawn + value_usd) - total_deposited
+
+    return {
+        "shares": shares,
+        "value_usd": value_usd,
+        "avg_entry_price": avg_entry_price,
+        "unrealized_profit": unrealized_profit,
+        "lifetime_earnings": lifetime_earnings
+    }
+
 # Best Strategies
 @app.get("/strategies/best")
 def best_strategies():
@@ -248,6 +282,60 @@ async def funds_deploy_to_strategy(data: DeployStrat):
     
 
 # --- Core logic from your script below ----
+
+def get_user_transactions(address):
+    url = f"https://api.etherscan.io/api"
+    params = {
+        "module": "account",
+        "action": "txlist",
+        "address": "0x8CE2E25fa9E0F56b42668B4Af1AB8d1b404a1e10",
+        "startblock": 0,
+        "endblock": 99999999,
+        "sort": "desc",
+        "apikey": ETHERSCAN_API_KEY
+    }
+    res = requests.get(url, params=params)
+    time.sleep(3)
+    res = res.json()
+    txs = res.get("result", [])
+
+    deposits = []
+    withdrawals = []
+
+    deposit_selector = "0x6e553f65"
+    withdraw_selector = "0x2e1a7d4d"
+
+    for tx in txs:
+        if tx.get("from", "").lower() != address.lower():
+            continue  # skip if not user
+
+        input_data = tx.get("input", "")
+        if not input_data or input_data == "0x":
+            continue
+
+        # DEPOSIT
+        if input_data.startswith(deposit_selector):
+            params = bytes.fromhex(remove_0x_prefix(input_data)[8:])
+            assets, receiver = decode(["uint256", "address"], params)
+            deposits.append({
+                "assets": assets / 1e6,   # normalize to USDC decimals (6)
+                "shares": assets / 1e6,   # for stable vault shares ≈ assets
+                "blockTime": int(tx.get("timeStamp", 0)),
+                "txHash": tx["hash"]
+            })
+
+        # WITHDRAW
+        elif input_data.startswith(withdraw_selector):
+            params = bytes.fromhex(remove_0x_prefix(input_data)[8:])
+            assets, receiver, owner = decode(["uint256", "address", "address"], params)
+            withdrawals.append({
+                "assets": assets / 1e6,
+                "blockTime": int(tx.get("timeStamp", 0)),
+                "txHash": tx["hash"]
+            })
+
+    return deposits, withdrawals
+    
 
 def get_normal_transactions():
     url = f"https://api.etherscan.io/api"
