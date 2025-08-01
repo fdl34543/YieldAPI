@@ -281,6 +281,26 @@ def depositValue(tx_data):
     sum_tx_value = sum(txValue)
     return sum_tx_value
 
+def uniqueDepositor(tx_data):
+    depositors = set()
+    txValue = []
+    for tx in tx_data.get("result", []):
+        if tx.get("input", "").startswith("0x6e553f65"):  # deposit(uint256,address)
+            data = tx["input"]
+
+            # strip "0x" and the first 8 hex chars (function selector)
+            params = bytes.fromhex(remove_0x_prefix(data)[8:])
+
+            # decode ABI: first param = uint256, second = address
+            assets, receiver = decode(["uint256", "address"], params)
+
+            depositor = tx.get("from")  # depositor wallet
+            if depositor not in depositors:
+                depositors.add(depositor)
+
+    unique = len(depositors)
+    return unique
+
 def withdrawValue(tx_data):
     txValue = []
     for tx in tx_data.get("result", []):
@@ -323,6 +343,7 @@ def get_vault_stats(bestAdapter):
     eth_txs = get_normal_transactions()
     deposit_value = depositValue(eth_txs)
     withdraw_value = withdrawValue(eth_txs)
+    unique = uniqueDepositor(eth_txs)
     netFlow = deposit_value - withdraw_value
 
     return {
@@ -333,7 +354,7 @@ def get_vault_stats(bestAdapter):
         "total_assets": round(total_assets, 5),
         "total_shares": round(total_shares / DECIMALS, 2),
         "share_price": round(share_price / 1e18, 6),
-        "unique_depositors": 0,
+        "unique_depositors": unique,
         "24h_deposits": deposit_value,
         "24h_withdrawals": withdraw_value,
         "net_flow_24h": netFlow
