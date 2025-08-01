@@ -80,57 +80,59 @@ def verify_api_key(api_key: str):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 # Yield Metrics
-# @app.get("/yield/metrics")
-# def yield_metrics():
-#     url = "https://yields.llama.fi/pools"
-#     response = requests.get(url)
-#     data = response.json()
+@app.get("/yield/metrics")
+def yield_metrics():
+    allStrategies = controller.functions.getAllStrategies().call()
+    #print(allStrategies)
 
-#     protocols = ["aave-v3", "compound-v3"]
-#     adapter = {
-#         "aave-v3": "0xa9BE08b7078EAFB2a42866bD273BC7454251663E",
-#         "compound-v3": "0xFc11541A0A36747Bf278287fc67F6BbBeFd6E981"
-#     }
+    strategy_objs = [
+        Strategy(name, address)
+        for name, address in zip(allStrategies[0], allStrategies[1])
+    ]
 
-#     best_pool = None
-#     best_apy = 0.0
-#     all_apys = []
+    bestStrategy = []
 
-#     for pool in data.get("data", []):
-#         project = pool.get("project", "").lower()
-#         symbol = pool.get("symbol", "").upper()
-#         chain = pool.get("chain", "")
-#         apy = pool.get("apy", 0.0)
+    # Example usage:
+    for strategy in strategy_objs:
+        try:
+            #print(strategy.name, strategy.address)
+            stra_address = web3.to_checksum_address(strategy.address)
+            straABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={stra_address}&apikey={ETHERSCAN_API_KEY}'
+            stra_abi = json.loads(requests.get(straABI_ENDPOINT).json()['result'])
+            stra = web3.eth.contract(address=stra_address, abi=stra_abi)
 
-#         if project in protocols and symbol == "USDC" and chain == "Ethereum":
-#             if apy > best_apy:
-#                 best_apy = apy
-#                 best_pool = pool
+            apy = stra.functions.getCurrentAPY().call()
 
-#     for pool in data.get("data", []):
-#         project = pool.get("project", "").lower()
-#         symbol = pool.get("symbol", "").upper()
-#         chain = pool.get("chain", "")
-#         apy = pool.get("apy", 0.0)
+            bestStrategy.append({
+                "name": strategy.name,
+                "address": strategy.address,
+                "apy": apy / 10**2
+            })
+        except:
+            pass
+    
+    best = max(bestStrategy, key=lambda s: s['apy'])
 
-#         if project in protocols and symbol == "USDC" and chain == "Ethereum":
-#             all_apys.append({
-#                 "protocol": pool.get("project"),
-#                 "apy": apy,
-#                 "24h_avg_apy": pool.get("apyPct1D", 0),
-#                 "7d_avg_apy": pool.get("apyPct7D", 0),
-#                 "performance_vs_best": round((apy / best_apy) * 100, 2) if best_apy else 0.0
-#             })
+    apyData = []
 
-#     best_protocol = best_pool["project"].lower() if best_pool else None
+    for strategy in strategy_objs:
+        try:
+            apy = oracle.functions.getAPY(strategy.address).call()
 
-#     return {
-#         "best_protocol": best_protocol,
-#         "apy": best_apy,
-#         "adapter": adapter.get(best_protocol),
-#         "chain": best_pool["chain"] if best_pool else None,
-#         "all_apys": all_apys
-#     }
+            apyData.append({
+                "name": strategy.name,
+                "address": strategy.address,
+                "apy": apy / 10**2
+            })
+        except:
+            print()
+
+    return {
+        "best_protocol": best['name'],
+        "apy": best['apy'],
+        "adapter": best['address'],
+        "all_apys": apyData
+    }
 
 # Vault Stats
 @app.get("/vault/stats")
@@ -244,57 +246,6 @@ async def funds_deploy_to_strategy(data: DeployStrat):
     
 
 # --- Core logic from your script below ----
-
-def get_best_yield_usdc():
-    url = "https://yields.llama.fi/pools"
-    response = requests.get(url)
-    data = response.json()
-
-    protocols = ["aave-v3", "compound-v3"]
-    adapter = {
-        "aave-v3": "0x33a52745b360C3031Fd6B767F1097e31B1B7C367",
-        "compound-v3": "0x82B3771C56c6E24251Ba9E68B5DE5B2059FC5bd4"
-    }
-
-    best_pool = None
-    best_apy = 0.0
-    all_apys = []
-
-    for pool in data.get("data", []):
-        project = pool.get("project", "").lower()
-        symbol = pool.get("symbol", "").upper()
-        chain = pool.get("chain", "")
-        apy = pool.get("apy", 0.0)
-
-        if project in protocols and symbol == "USDC" and chain == "Ethereum":
-            if apy > best_apy:
-                best_apy = apy
-                best_pool = pool
-
-    for pool in data.get("data", []):
-        project = pool.get("project", "").lower()
-        symbol = pool.get("symbol", "").upper()
-        chain = pool.get("chain", "")
-        apy = pool.get("apy", 0.0)
-
-        if project in protocols and symbol == "USDC" and chain == "Ethereum":
-            all_apys.append({
-                "protocol": pool.get("project"),
-                "apy": apy,
-                "24h_avg_apy": pool.get("apyPct1D", 0),
-                "7d_avg_apy": pool.get("apyPct7D", 0),
-                "performance_vs_best": round((apy / best_apy) * 100, 2) if best_apy else 0.0
-            })
-
-    best_protocol = best_pool["project"].lower() if best_pool else None
-
-    return {
-        "best_protocol": best_protocol,
-        "apy": best_apy,
-        "adapter": adapter.get(best_protocol),
-        "chain": best_pool["chain"] if best_pool else None,
-        "all_apys": all_apys
-    }
 
 def get_vault_stats(bestAdapter):
     vault_address = web3.to_checksum_address(bestAdapter)
