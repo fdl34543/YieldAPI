@@ -320,6 +320,7 @@ def get_vault_stats(bestAdapter):
     vtlAssets = vtlAssets / 10**6
     
     eth_txs = get_normal_transactions()
+    time.sleep(2)
     deposit_value = depositValue(eth_txs)
     withdraw_value = withdrawValue(eth_txs)
     netFlow = deposit_value - withdraw_value
