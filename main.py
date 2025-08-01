@@ -12,6 +12,8 @@ import os
 # from db import SessionLocal, FundDeployment
 # from typing import List
 import time
+from eth_abi import decode
+from eth_utils import remove_0x_prefix
 
 app = FastAPI()
 
@@ -247,6 +249,54 @@ async def funds_deploy_to_strategy(data: DeployStrat):
 
 # --- Core logic from your script below ----
 
+def get_normal_transactions():
+    url = f"https://api.etherscan.io/api"
+    params = {
+        "module": "account",
+        "action": "txlist",
+        "address": "0x8CE2E25fa9E0F56b42668B4Af1AB8d1b404a1e10",
+        "startblock": 0,
+        "endblock": 99999999,
+        "sort": "desc",
+        "apikey": ETHERSCAN_API_KEY
+    }
+    response = requests.get(url, params=params)
+    return response.json()
+
+def depositValue(tx_data):
+    txValue = []
+    for tx in tx_data.get("result", []):
+        if tx.get("input", "").startswith("0x6e553f65"):  # deposit(uint256,address)
+            data = tx["input"]
+
+            # strip "0x" and the first 8 hex chars (function selector)
+            params = bytes.fromhex(remove_0x_prefix(data)[8:])
+
+            # decode ABI: first param = uint256, second = address
+            assets, receiver = decode(["uint256", "address"], params)
+
+            txValue.append(assets / 1e6)
+
+    sum_tx_value = sum(txValue)
+    return sum_tx_value
+
+def withdrawValue(tx_data):
+    txValue = []
+    for tx in tx_data.get("result", []):
+        if tx.get("input", "").startswith("0x2e1a7d4d"):  # deposit(uint256,address)
+            data = tx["input"]
+
+            # strip "0x" and the first 8 hex chars (function selector)
+            params = bytes.fromhex(remove_0x_prefix(data)[8:])
+
+            # decode ABI: first param = uint256, second = address
+            assets, receiver = decode(["uint256", "address"], params)
+
+            txValue.append(assets / 1e6)
+
+    sum_tx_value = sum(txValue)
+    return sum_tx_value
+
 def get_vault_stats(bestAdapter):
     vault_address = web3.to_checksum_address(bestAdapter)
     ABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
@@ -268,6 +318,11 @@ def get_vault_stats(bestAdapter):
 
     vtlAssets = vlt.functions.totalAssets().call()
     vtlAssets = vtlAssets / 10**6
+    
+    eth_txs = get_normal_transactions()
+    deposit_value = depositValue(eth_txs)
+    withdraw_value = withdrawValue(eth_txs)
+    netFlow = deposit_value - withdraw_value
 
     return {
         "BalanceUnderManagement":{
@@ -278,9 +333,9 @@ def get_vault_stats(bestAdapter):
         "total_shares": round(total_shares / DECIMALS, 2),
         "share_price": round(share_price / 1e18, 6),
         "unique_depositors": 0,
-        "24h_deposits": 0,
-        "24h_withdrawals": 0,
-        "net_flow_24h": 0
+        "24h_deposits": deposit_value,
+        "24h_withdrawals": withdraw_value,
+        "net_flow_24h": netFlow
     }
 
 def performanceHistory(bestAdapter):
