@@ -470,6 +470,8 @@ def get_vault_stats(best_Adapter):
     total_shares = vault.functions.getTotalShares().call()
     share_price = vault.functions.sharePrice().call()
 
+    tvl = (total_shares * share_price) / 1e18
+
     total_assets = (total_shares / DECIMALS) * (share_price/ 10e17)
 
     idleBalanced = usdc.functions.balanceOf(controller_address).call()
@@ -492,6 +494,7 @@ def get_vault_stats(best_Adapter):
         "total_assets": round(total_assets, 5),
         "total_shares": round(total_shares / DECIMALS, 2),
         "share_price": round(share_price / 1e18, 6),
+        "tvl": tvl,
         "unique_depositors": unique,
         "24h_deposits": deposit_value,
         "24h_withdrawals": withdraw_value,
