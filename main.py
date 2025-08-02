@@ -434,6 +434,7 @@ def withdrawValue(tx_data):
 def get_vault_stats(bestAdapter):
     vault_address = web3.to_checksum_address(bestAdapter)
     ABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
+    time.sleep(2)
     vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
 
     # with open("controllerABI.json", "r") as f:
