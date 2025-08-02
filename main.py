@@ -433,12 +433,22 @@ def withdrawValue(tx_data):
 
 def get_vault_stats(bestAdapter):
     vault_address = web3.to_checksum_address(bestAdapter)
-    ABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
-    time.sleep(2)
-    vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
+    # ABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
+    # time.sleep(2)
+    # vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
 
     # with open("controllerABI.json", "r") as f:
     #     vault_abi = json.load(f)
+
+    vault_abi = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
+{"anonymous":False,"inputs":[{"indexed":True,"internalType":"address","name":"updater","type":"address"},
+{"indexed":False,"internalType":"uint256","name":"newAPY","type":"uint256"},
+{"indexed":False,"internalType":"uint256","name":"sharePrice","type":"uint256"}],
+"name":"MetricsUpdated","type":"event"},
+{"inputs":[],"name":"getTotalShares","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],
+"stateMutability":"view","type":"function"},
+{"inputs":[],"name":"sharePrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],
+"stateMutability":"view","type":"function"}]
 
     vault = web3.eth.contract(address=vault_address, abi=vault_abi)
 
