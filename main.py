@@ -96,15 +96,6 @@ gweinow = datagwei["result"]["SafeGasPrice"]
 gwein = float(gweinow) + 5
 
 
-urlbest = "https://yield-api.norexa.ai/strategies/best"
-headersbest = {
-    "accept": "application/json"
-}
-
-responsebest = requests.get(urlbest, headers=headersbest)
-databest = responsebest.json()
-best_Adapter = databest["Adapter"]
-
 
 def verify_api_key(api_key: str):
     if api_key != VALID_API_KEY:
@@ -169,7 +160,7 @@ def yield_metrics():
 @app.get("/vault/stats")
 def vault_stats():
     # adapter = getBestStrategy()["Adapter"]
-    return get_vault_stats(best_Adapter)
+    return get_vault_stats()
     # adapter = getBestStrategy()["Adapter"]
     # return get_vault_stats(adapter)
 
@@ -442,43 +433,22 @@ def withdrawValue(tx_data):
     sum_tx_value = sum(txValue)
     return sum_tx_value
 
-def get_vault_stats(best_Adapter):
+def get_vault_stats():
 # def get_vault_stats(bestAdapter):
-    bestAdapter = best_Adapter
 
-    vault_address = web3.to_checksum_address(bestAdapter)
-    # ABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
-    # time.sleep(2)
-    # vault_abi = json.loads(requests.get(ABI_ENDPOINT).json()['result'])
-
-    # with open("controllerABI.json", "r") as f:
-    #     vault_abi = json.load(f)
-
-    vault_abi = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
-{"anonymous":False,"inputs":[{"indexed":True,"internalType":"address","name":"updater","type":"address"},
-{"indexed":False,"internalType":"uint256","name":"newAPY","type":"uint256"},
-{"indexed":False,"internalType":"uint256","name":"sharePrice","type":"uint256"}],
-"name":"MetricsUpdated","type":"event"},
-{"inputs":[],"name":"getTotalShares","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],
-"stateMutability":"view","type":"function"},
-{"inputs":[],"name":"sharePrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],
-"stateMutability":"view","type":"function"}]
-
-    vault = web3.eth.contract(address=vault_address, abi=vault_abi)
+    vtlAsset = vlt.functions.totalAssets().call()
+    vtlAssets = vtlAsset / 10**6
 
     #total_assets = vault.functions.getTotalDeposits().call()
-    total_shares = vault.functions.getTotalShares().call()
-    share_price = vault.functions.sharePrice().call()
+    calcShare = vlt.functions.convertToShares(vtlAsset).call()
+    share_price = vtlAsset / calcShare
 
-    tvl = (total_shares * share_price) / 1e18
+    tvl = (calcShare * share_price) / 1e6
 
-    total_assets = (total_shares / DECIMALS) * (share_price/ 10e17)
+    total_assets = (calcShare / DECIMALS) * (share_price/ DECIMALS)
 
     idleBalanced = usdc.functions.balanceOf(controller_address).call()
     idleBalance = idleBalanced / 10**6
-
-    vtlAssets = vlt.functions.totalAssets().call()
-    vtlAssets = vtlAssets / 10**6
     
     eth_txs = get_normal_transactions()
     deposit_value = depositValue(eth_txs)
@@ -491,10 +461,10 @@ def get_vault_stats(best_Adapter):
             "vaultTotalAssets": vtlAssets,
             "controllerIdleBalance": idleBalance,
         },
-        "total_assets": round(total_assets, 5),
-        "total_shares": round(total_shares / DECIMALS, 2),
-        "share_price": round(share_price / 1e18, 6),
-        "tvl": tvl,
+        "total_assets": round(vtlAssets, 5),
+        "total_shares": round(calcShare / DECIMALS, 2),
+        "share_price": round(share_price / DECIMALS, 6),
+        "tvl": round(tvl, 4),
         "unique_depositors": unique,
         "24h_deposits": deposit_value,
         "24h_withdrawals": withdraw_value,
