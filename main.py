@@ -89,7 +89,6 @@ yearnV = web3.eth.contract(address=yearnV_address, abi=erc20_abi)
 vesperP_address = web3.to_checksum_address("0x0C49066C0808Ee8c673553B7cbd99BCC9ABf113d")
 vesperP = web3.eth.contract(address=vesperP_address, abi=erc20_abi)
 
-
 def verify_api_key(api_key: str):
     if api_key != VALID_API_KEY:
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
@@ -456,7 +455,7 @@ def get_vault_stats():
         },
         "total_assets": round(vtlAssets, 5),
         "total_shares": round(calcShare / DECIMALS, 2),
-        "share_price": round(share_price / DECIMALS, 6),
+        "share_price": round(share_price, 6),
         "tvl": round(tvl, 4),
         "unique_depositors": unique,
         "24h_deposits": deposit_value,
