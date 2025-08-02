@@ -96,6 +96,15 @@ gweinow = datagwei["result"]["SafeGasPrice"]
 gwein = float(gweinow) + 5
 
 
+urlbest = "https://yield-api.norexa.ai/vstrategies/best"
+headersbest = {
+    "accept": "application/json"
+}
+
+responsebest = requests.get(urlbest, headers=headersbest)
+databest = responsebest.json()
+best_Adapter = databest["Adapter"]
+
 
 def verify_api_key(api_key: str):
     if api_key != VALID_API_KEY:
@@ -160,7 +169,7 @@ def yield_metrics():
 @app.get("/vault/stats")
 def vault_stats():
     # adapter = getBestStrategy()["Adapter"]
-    return get_vault_stats()
+    return get_vault_stats(best_Adapter)
     # adapter = getBestStrategy()["Adapter"]
     # return get_vault_stats(adapter)
 
@@ -433,16 +442,9 @@ def withdrawValue(tx_data):
     sum_tx_value = sum(txValue)
     return sum_tx_value
 
-def get_vault_stats():
+def get_vault_stats(best_Adapter):
 # def get_vault_stats(bestAdapter):
-    url = "https://yield-api.norexa.ai/vstrategies/best"
-    headers = {
-        "accept": "application/json"
-    }
-
-    response = requests.get(url, headers=headers)
-    data = response.json()
-    bestAdapter = data["Adapter"]
+    bestAdapter = best_Adapter
 
     vault_address = web3.to_checksum_address(bestAdapter)
     # ABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
