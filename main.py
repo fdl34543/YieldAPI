@@ -96,7 +96,7 @@ gweinow = datagwei["result"]["SafeGasPrice"]
 gwein = float(gweinow) + 5
 
 
-urlbest = "https://yield-api.norexa.ai/vstrategies/best"
+urlbest = "https://yield-api.norexa.ai/strategies/best"
 headersbest = {
     "accept": "application/json"
 }
