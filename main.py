@@ -159,8 +159,10 @@ def yield_metrics():
 # Vault Stats
 @app.get("/vault/stats")
 def vault_stats():
-    adapter = getBestStrategy()["Adapter"]
-    return get_vault_stats(adapter)
+    # adapter = getBestStrategy()["Adapter"]
+    return get_vault_stats()
+    # adapter = getBestStrategy()["Adapter"]
+    # return get_vault_stats(adapter)
 
 @app.get("/vault/feeAnalytics")
 def fee_analytics():
@@ -431,7 +433,17 @@ def withdrawValue(tx_data):
     sum_tx_value = sum(txValue)
     return sum_tx_value
 
-def get_vault_stats(bestAdapter):
+def get_vault_stats():
+# def get_vault_stats(bestAdapter):
+    url = "https://yield-api.norexa.ai/vstrategies/best"
+    headers = {
+        "accept": "application/json"
+    }
+
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    bestAdapter = data["Adapter"]
+
     vault_address = web3.to_checksum_address(bestAdapter)
     # ABI_ENDPOINT = f'https://api.etherscan.io/api?module=contract&action=getabi&address={vault_address}&apikey={ETHERSCAN_API_KEY}'
     # time.sleep(2)
