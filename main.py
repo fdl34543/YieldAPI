@@ -89,13 +89,6 @@ yearnV = web3.eth.contract(address=yearnV_address, abi=erc20_abi)
 vesperP_address = web3.to_checksum_address("0x0C49066C0808Ee8c673553B7cbd99BCC9ABf113d")
 vesperP = web3.eth.contract(address=vesperP_address, abi=erc20_abi)
 
-url = 'https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=15W7XAPWQMGR8I34AB5KK7XQAEIAS9PEGZ'
-response = requests.get(url).text
-datagwei = json.loads(response)
-gweinow = datagwei["result"]["SafeGasPrice"]
-gwein = float(gweinow) + 5
-
-
 
 def verify_api_key(api_key: str):
     if api_key != VALID_API_KEY:
@@ -792,6 +785,12 @@ def Rebalancing():
     lowest = min(apyData, key=lambda x: x['apy'])
 
     apyDifference = highest['apy'] - lowest['apy']
+
+    url = 'https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=15W7XAPWQMGR8I34AB5KK7XQAEIAS9PEGZ'
+    response = requests.get(url).text
+    datagwei = json.loads(response)
+    gweinow = datagwei["result"]["SafeGasPrice"]
+    gwein = float(gweinow) + 5
 
     gas_price_gwei = gwein
     gas_units = 300000
